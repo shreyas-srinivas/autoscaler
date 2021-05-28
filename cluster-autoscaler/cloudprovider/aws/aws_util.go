@@ -20,7 +20,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"io/ioutil"
 	"k8s.io/klog"
 	"net/http"
@@ -31,9 +34,11 @@ import (
 )
 
 var (
-	ec2MetaDataServiceUrl        = "http://169.254.169.254/latest/dynamic/instance-identity/document"
-	ec2PricingServiceUrlTemplate = "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/%s/index.json"
-	staticListLastUpdateTime     = "2019-10-14"
+	ec2MetaDataServiceUrl          = "http://169.254.169.254"
+	ec2PricingServiceUrlTemplate   = "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/%s/index.json"
+	ec2PricingServiceUrlTemplateCN = "https://pricing.cn-north-1.amazonaws.com.cn/offers/v1.0/cn/AmazonEC2/current/%s/index.json"
+	staticListLastUpdateTime       = "2020-12-07"
+	ec2Arm64Processors             = []string{"AWS Graviton Processor", "AWS Graviton2 Processor"}
 )
 
 type response struct {
@@ -147,26 +152,13 @@ func GetCurrentAwsRegion() (string, error) {
 	region, present := os.LookupEnv("AWS_REGION")
 
 	if !present {
-		klog.V(1).Infof("fetching %s\n", ec2MetaDataServiceUrl)
-		res, err := http.Get(ec2MetaDataServiceUrl)
+		c := aws.NewConfig().
+			WithEndpoint(ec2MetaDataServiceUrl)
+		sess, err := session.NewSession()
 		if err != nil {
-			return "", fmt.Errorf("Error fetching %s", ec2MetaDataServiceUrl)
+			return "", fmt.Errorf("failed to create session")
 		}
-
-		defer res.Body.Close()
-
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return "", fmt.Errorf("Error parsing %s", ec2MetaDataServiceUrl)
-		}
-
-		var unmarshalled = map[string]string{}
-		err = json.Unmarshal(body, &unmarshalled)
-		if err != nil {
-			klog.Warningf("Error unmarshalling %s, skip...\n", ec2MetaDataServiceUrl)
-		}
-
-		region = unmarshalled["region"]
+		return ec2metadata.New(sess, c).Region()
 	}
 
 	return region, nil
