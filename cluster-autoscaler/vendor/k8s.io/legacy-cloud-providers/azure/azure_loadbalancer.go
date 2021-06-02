@@ -102,8 +102,6 @@ const (
 	serviceTagKey = "service"
 	// clusterNameKey is the cluster name key applied for public IP tags.
 	clusterNameKey = "kubernetes-cluster-name"
-
-	defaultLoadBalancerSourceRanges = "0.0.0.0/0"
 )
 
 // GetLoadBalancer returns whether the specified load balancer and its components exist, and
@@ -1084,8 +1082,14 @@ func (az *Cloud) reconcileLoadBalancerRule(
 					BackendPort:         to.Int32Ptr(port.Port),
 					DisableOutboundSnat: to.BoolPtr(az.disableLoadBalancerOutboundSNAT()),
 					EnableTCPReset:      enableTCPReset,
-					EnableFloatingIP:    to.BoolPtr(true),
 				},
+			}
+			// LB does not support floating IPs for IPV6 rules
+			if utilnet.IsIPv6String(service.Spec.ClusterIP) {
+				expectedRule.BackendPort = to.Int32Ptr(port.NodePort)
+				expectedRule.EnableFloatingIP = to.BoolPtr(false)
+			} else {
+				expectedRule.EnableFloatingIP = to.BoolPtr(true)
 			}
 
 			if protocol == v1.ProtocolTCP {
@@ -1134,7 +1138,6 @@ func (az *Cloud) reconcileSecurityGroup(clusterName string, service *v1.Service,
 	if lbIP != nil {
 		destinationIPAddress = *lbIP
 	}
-
 	if destinationIPAddress == "" {
 		destinationIPAddress = "*"
 	}
@@ -1144,12 +1147,6 @@ func (az *Cloud) reconcileSecurityGroup(clusterName string, service *v1.Service,
 		return nil, err
 	}
 	serviceTags := getServiceTags(service)
-	if len(serviceTags) != 0 {
-		if _, ok := sourceRanges[defaultLoadBalancerSourceRanges]; ok {
-			delete(sourceRanges, defaultLoadBalancerSourceRanges)
-		}
-	}
-
 	var sourceAddressPrefixes []string
 	if (sourceRanges == nil || servicehelpers.IsAllowAll(sourceRanges)) && len(serviceTags) == 0 {
 		if !requiresInternalLoadBalancer(service) {

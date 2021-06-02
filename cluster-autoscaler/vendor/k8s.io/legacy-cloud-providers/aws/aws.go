@@ -25,7 +25,6 @@ import (
 	"io"
 	"net"
 	"path"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -1203,13 +1202,7 @@ func azToRegion(az string) (string, error) {
 	if len(az) < 1 {
 		return "", fmt.Errorf("invalid (empty) AZ")
 	}
-
-	r := regexp.MustCompile(`^([a-zA-Z]+-)+\d+`)
-	region := r.FindString(az)
-	if region == "" {
-		return "", fmt.Errorf("invalid AZ: %s", az)
-	}
-
+	region := az[:len(az)-1]
 	return region, nil
 }
 

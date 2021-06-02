@@ -44,8 +44,7 @@ func (as *availabilitySet) AttachDisk(isManagedDisk bool, diskName, diskURI stri
 		return err
 	}
 
-	disks := make([]compute.DataDisk, len(*vm.StorageProfile.DataDisks))
-	copy(disks, *vm.StorageProfile.DataDisks)
+	disks := filterDetachingDisks(*vm.StorageProfile.DataDisks)
 
 	if isManagedDisk {
 		managedDisk := &compute.ManagedDiskParameters{ID: &diskURI}
@@ -132,8 +131,7 @@ func (as *availabilitySet) DetachDisk(diskName, diskURI string, nodeName types.N
 		return err
 	}
 
-	disks := make([]compute.DataDisk, len(*vm.StorageProfile.DataDisks))
-	copy(disks, *vm.StorageProfile.DataDisks)
+	disks := filterDetachingDisks(*vm.StorageProfile.DataDisks)
 
 	bFoundDisk := false
 	for i, disk := range disks {
@@ -142,7 +140,7 @@ func (as *availabilitySet) DetachDisk(diskName, diskURI string, nodeName types.N
 			(disk.ManagedDisk != nil && diskURI != "" && strings.EqualFold(*disk.ManagedDisk.ID, diskURI)) {
 			// found the disk
 			klog.V(2).Infof("azureDisk - detach disk: name %q uri %q", diskName, diskURI)
-			disks[i].ToBeDetached = to.BoolPtr(true)
+			disks = append(disks[:i], disks[i+1:]...)
 			bFoundDisk = true
 			break
 		}
