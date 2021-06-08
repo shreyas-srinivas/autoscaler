@@ -17,7 +17,7 @@ fi
 
 SCRIPT_NAME=$(basename "$0")
 K8S_FORK=${K8S_FORK:-"git@github.com:kubernetes/kubernetes.git"}
-K8S_REV="master"
+K8S_REV="v1.18.3"
 BATCH_MODE="false"
 TARGET_MODULE=${TARGET_MODULE:-k8s.io/autoscaler/cluster-autoscaler}
 VERIFY_COMMAND=${VERIFY_COMMAND:-"go test -mod=vendor ./..."}
@@ -211,7 +211,7 @@ set +o errexit
   echo "Operation finished successfully"
   if [[ "$(basename "${WORK_DIR}" | cut -d '.' -f 1)" == "ca-update-vendor" ]];then
     echo "Deleting working directory ${WORK_DIR}"
-    rm -rf ${WORK_DIR}
+    #rm -rf ${WORK_DIR}
   else
     echo "Preserving working directory ${WORK_DIR}"
   fi
